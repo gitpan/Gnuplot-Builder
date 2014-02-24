@@ -11,6 +11,8 @@ lib/Gnuplot/Builder/Util.pm
 MANIFEST			This list of files
 README
 t/00-load.t
+t/builder/aliases.t
+t/builder/example.t
 t/dataset/aliases.t
 t/dataset/cycle.t
 t/dataset/data.t
@@ -58,6 +60,7 @@ t/testlib/DatasetUtil.pm
 t/testlib/PKLUtil.pm
 t/testlib/ScriptUtil.pm
 xt/exception.t
+xt/ghelp.t
 xt/manifest.t
 xt/max_parallel.t
 xt/plot.t
