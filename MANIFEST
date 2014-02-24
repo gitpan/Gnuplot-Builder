@@ -8,7 +8,6 @@ lib/Gnuplot/Builder/Process.pm
 lib/Gnuplot/Builder/PrototypedData.pm
 lib/Gnuplot/Builder/Script.pm
 lib/Gnuplot/Builder/Util.pm
-lib/Gnuplot/Builder/Version.pm
 MANIFEST			This list of files
 README
 t/00-load.t
@@ -58,7 +57,6 @@ t/testlib/Dataset.pm
 t/testlib/DatasetUtil.pm
 t/testlib/PKLUtil.pm
 t/testlib/ScriptUtil.pm
-xt/consistent_version.t
 xt/exception.t
 xt/manifest.t
 xt/max_parallel.t
