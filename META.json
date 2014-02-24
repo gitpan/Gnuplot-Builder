@@ -47,7 +47,8 @@
             "List::Util" : "1.28",
             "POSIX" : "0",
             "Scalar::Util" : "0",
-            "overload" : "0"
+            "overload" : "0",
+            "parent" : "0"
          }
       }
    },
@@ -60,5 +61,5 @@
          "url" : "git://github.com/debug-ito/Gnuplot-Builder.git"
       }
    },
-   "version" : "0.10"
+   "version" : "0.11"
 }
