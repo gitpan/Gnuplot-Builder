@@ -6,7 +6,7 @@ use Gnuplot::Builder::Script;
 use Gnuplot::Builder::Dataset;
 use Gnuplot::Builder::Process;
 
-our $VERSION = "0.11";
+our $VERSION = "0.12";
 
 our @EXPORT = our @EXPORT_OK = qw(gscript gfunc gfile gdata ghelp);
 
@@ -28,7 +28,7 @@ sub gdata {
 
 sub ghelp {
     my (@help_args) = @_;
-    my $process = Gnuplot::Builder::Process->new;
+    my $process = Gnuplot::Builder::Process->new(capture => 1);
     my $terminator_guard = $process->terminator_guard;
     my $writer = $process->writer;
     $writer->("help");
