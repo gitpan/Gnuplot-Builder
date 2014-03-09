@@ -16,6 +16,7 @@ t/builder/example.t
 t/dataset/aliases.t
 t/dataset/cycle.t
 t/dataset/data.t
+t/dataset/inherit_alias.t
 t/dataset/inherit_change.t
 t/dataset/inherit_data.t
 t/dataset/inherit_mixed.t
@@ -27,6 +28,7 @@ t/dataset/opt_parse.t
 t/dataset/opt_single_value.t
 t/dataset/overload.t
 t/dataset/source.t
+t/dataset/synopsis.t
 t/pkl/delete.t
 t/pkl/example.t
 t/pkl/hash.t
@@ -34,6 +36,7 @@ t/pkl/merge.t
 t/script/add.t
 t/script/cycle.t
 t/script/define.t
+t/script/inherit_alias.t
 t/script/inherit_change_parent.t
 t/script/inherit_deep.t
 t/script/inherit_mixed.t

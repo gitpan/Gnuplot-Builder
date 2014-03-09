@@ -6,7 +6,7 @@ use Gnuplot::Builder::Script;
 use Gnuplot::Builder::Dataset;
 use Gnuplot::Builder::Process;
 
-our $VERSION = "0.13";
+our $VERSION = "0.14";
 
 our @EXPORT = our @EXPORT_OK = qw(gscript gfunc gfile gdata ghelp);
 
@@ -110,6 +110,13 @@ It exports some easy-to-type functions by default.
 
 For batch scripts, I recommend using L<Gnuplot::Builder::Script> and L<Gnuplot::Builder::Dataset> directly.
 These modules are purely object-oriented, and won't mess up your namespace.
+
+=head2 For Windows Users
+
+Batch scripts using L<Gnuplot::Builder> are fine in Windows.
+
+In interactive shells, plot windows might not persist when you use regular L<Gnuplot::Builder>.
+As a workaround, try L<Gnuplot::Builder::Wgnuplot>.
 
 
 =head1 EXPORTED FUNCTIONS
