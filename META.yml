@@ -38,4 +38,4 @@ requires:
 resources:
   bugtracker: https://github.com/debug-ito/Gnuplot-Builder/issues
   repository: git://github.com/debug-ito/Gnuplot-Builder.git
-version: 0.14
+version: 0.15
