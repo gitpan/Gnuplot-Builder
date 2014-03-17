@@ -6,7 +6,7 @@ use Gnuplot::Builder::Script;
 use Gnuplot::Builder::Dataset;
 use Gnuplot::Builder::Process;
 
-our $VERSION = "0.15";
+our $VERSION = "0.20";
 
 our @EXPORT = our @EXPORT_OK = qw(gscript gfunc gfile gdata ghelp);
 
@@ -28,19 +28,14 @@ sub gdata {
 
 sub ghelp {
     my (@help_args) = @_;
-    my $process = Gnuplot::Builder::Process->new(capture => 1);
-    my $terminator_guard = $process->terminator_guard;
-    my $writer = $process->writer;
-    $writer->("help");
-    foreach my $arg (@help_args) {
-        $writer->(" $arg");
-    }
-    $writer->("\n");
-    undef $writer;
-    $process->wait_to_finish;
-    my $result = $process->result;
-    $terminator_guard->cancel;
-    return $result;
+    return Gnuplot::Builder::Process->with_new_process(do => sub {
+        my $writer = shift;
+        $writer->("help");
+        foreach my $arg (@help_args) {
+            $writer->(" $arg");
+        }
+        $writer->("\n");
+    });
 }
 
 1;
@@ -72,8 +67,6 @@ Gnuplot::Builder - object-oriented gnuplot script builder
 
 
 =head1 DESCRIPTION
-
-B<< This is a beta release. API may change in the future. >>
 
 L<Gnuplot::Builder> is a gnuplot script builder. Its advantages include:
 

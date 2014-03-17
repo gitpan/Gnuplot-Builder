@@ -34,6 +34,7 @@ t/pkl/example.t
 t/pkl/hash.t
 t/pkl/merge.t
 t/script/add.t
+t/script/command_block.t
 t/script/cycle.t
 t/script/define.t
 t/script/inherit_alias.t
@@ -43,6 +44,7 @@ t/script/inherit_mixed.t
 t/script/inherit_modify_parent.t
 t/script/inherit_opt.t
 t/script/mixed.t
+t/script/multi.t
 t/script/new_arguments.t
 t/script/opt_aliases.t
 t/script/opt_change.t
@@ -58,6 +60,7 @@ t/script/overload.t
 t/script/plot_with_example_obj.t
 t/script/plot_with_obj.t
 t/script/plot_with_str.t
+t/script/run.t
 t/testlib/Dataset.pm
 t/testlib/DatasetUtil.pm
 t/testlib/PKLUtil.pm
@@ -67,8 +70,11 @@ xt/exception.t
 xt/ghelp.t
 xt/manifest.t
 xt/max_parallel.t
+xt/multiplot.t
 xt/plot.t
 xt/pod.t
 xt/process_mocktool.t
+xt/run.t
+xt/testlib/XTUtil.pm
 META.yml
 META.json

@@ -28,14 +28,14 @@ no_index:
     - README.pod
 requires:
   File::Spec: 0
-  Guard: 0
   IPC::Open3: 0
   List::Util: 1.28
   POSIX: 0
   Scalar::Util: 0
+  Try::Tiny: 0
   overload: 0
   parent: 0
 resources:
   bugtracker: https://github.com/debug-ito/Gnuplot-Builder/issues
   repository: git://github.com/debug-ito/Gnuplot-Builder.git
-version: 0.15
+version: 0.20

@@ -4,7 +4,7 @@ use warnings;
 use Gnuplot::Builder::PrototypedData;
 use Gnuplot::Builder::Util qw(quote_gnuplot_str);
 use Gnuplot::Builder::Process;
-use Scalar::Util qw(weaken blessed);
+use Scalar::Util qw(weaken blessed refaddr);
 use Carp;
 use overload '""' => "to_string";
 
@@ -193,8 +193,8 @@ sub _collect_dataset_params {
     return (\@params_str, \@dataset_objects);
 }
 
-sub _write_inline_data {
-    my ($writer, $dataset_objects_arrayref) = @_;
+sub _wrap_writer_to_detect_empty_data {
+    my ($writer) = @_;
     my $ended_with_newline = 0;
     my $data_written = 0;
     my $wrapped_writer = sub {
@@ -204,12 +204,27 @@ sub _write_inline_data {
         $ended_with_newline = ($nonempty_data[-1] =~ /\n$/);
         $writer->(join("", @nonempty_data));
     };
+    return ($wrapped_writer, \$data_written, \$ended_with_newline);
+}
+
+sub _write_inline_data {
+    my ($writer, $dataset_objects_arrayref) = @_;
+    my ($wrapped_writer, $data_written_ref, $ended_with_newline_ref) =
+        _wrap_writer_to_detect_empty_data($writer);
     foreach my $dataset (@$dataset_objects_arrayref) {
-        $data_written = $ended_with_newline = 0;
+        $$data_written_ref = $$ended_with_newline_ref = 0;
         $dataset->write_data_to($wrapped_writer);
-        next if !$data_written;
-        $writer->("\n") if !$ended_with_newline;
+        next if !$$data_written_ref;
+        $writer->("\n") if !$$ended_with_newline_ref;
         $writer->("e\n");
+    }
+}
+
+sub _wrap_commands_with_output {
+    my ($commands_ref, $output_filename) = @_;
+    if(defined($output_filename)) {
+        unshift @$commands_ref, "set output " . quote_gnuplot_str($output_filename);
+        push @$commands_ref, "set output";
     }
 }
 
@@ -217,42 +232,25 @@ sub _draw_with {
     my ($self, %args) = @_;
     my $plot_command = $args{command};
     my $dataset = $args{dataset};
-    croak "dataset is mandatory" if not defined $dataset;
+    croak "dataset parameter is mandatory" if not defined $dataset;
     if(ref($dataset) ne "ARRAY") {
         $dataset = [$dataset];
     }
     croak "at least one dataset is required" if !@$dataset;
-    my $output = $args{output};
-    my $writer = $args{writer};
-    my $async = $args{async};
-    my ($gnuplot_process, $terminator_guard);
-    if(!defined($writer)) {
-        $gnuplot_process = Gnuplot::Builder::Process->new(capture => !$async);
-        $writer = $gnuplot_process->writer;
-        $terminator_guard = $gnuplot_process->terminator_guard; ## stop the process if aborted.
-    }
-    
-    $writer->($self->to_string);
-    if(defined $output) {
-        $writer->("set output " . quote_gnuplot_str($output) . "\n");
-    }
-    my ($params, $dataset_objects) = _collect_dataset_params($dataset);
-    $writer->("$plot_command " . join(",", @$params) . "\n");
-    _write_inline_data($writer, $dataset_objects);
-    if(defined $output) {
-        $writer->("set output\n");
-    }
 
-    my $result = "";
-    if(defined $gnuplot_process) {
-        $gnuplot_process->close_input();
-        if(!$async) {
-            $gnuplot_process->wait_to_finish();
-            $result = $gnuplot_process->result;
-        }
-    }
-    $terminator_guard->cancel if defined $terminator_guard;
-    return $result;
+    my $plotter = sub {
+        my $writer = shift;
+        my ($params, $dataset_objects) = _collect_dataset_params($dataset);
+        $writer->("$plot_command " . join(",", @$params) . "\n");
+        _write_inline_data($writer, $dataset_objects);
+    };
+    my @commands = ($plotter);
+    _wrap_commands_with_output(\@commands, $args{output});
+    return $self->run_with(
+        do => \@commands,
+        writer => $args{writer},
+        async => $args{async}
+    );
 }
 
 sub plot_with {
@@ -273,6 +271,86 @@ sub plot {
 sub splot {
     my ($self, @dataset) = @_;
     return $self->_draw_with(command => "splot", dataset => \@dataset);
+}
+
+sub multiplot_with {
+    my ($self, %args) = @_;
+    my $do = $args{do};
+    croak "do parameter is mandatory" if not defined $do;
+    croak "do parameter must be a code-ref" if ref($do) ne "CODE";
+    my $wrapped_do = sub {
+        my $writer = shift;
+        my ($wrapped_writer, $data_written_ref, $ended_with_newline_ref) =
+            _wrap_writer_to_detect_empty_data($writer);
+        $do->($wrapped_writer);
+        if($$data_written_ref && !$$ended_with_newline_ref) {
+            $writer->("\n");
+        }
+    };
+    my $multiplot_command =
+        (defined($args{option}) && $args{option} ne "")
+            ? "set multiplot $args{option}" : "set multiplot";
+    my @commands = ($multiplot_command, $wrapped_do, "unset multiplot");
+    _wrap_commands_with_output(\@commands, $args{output});
+    return $self->run_with(
+        do => \@commands,
+        writer => $args{writer},
+        async => $args{async}
+    );
+}
+
+sub multiplot {
+    my ($self, $option, $code) = @_;
+    if(@_ == 2) {
+        $code = $option;
+        $option = "";
+    }
+    croak "code parameter is mandatory" if not defined $code;
+    croak "code parameter must be a code-ref" if ref($code) ne "CODE";
+    return $self->multiplot_with(do => $code, option => $option);
+}
+
+our $_context_writer = undef;
+
+sub run_with {
+    my ($self, %args) = @_;
+    my $commands = $args{do};
+    if(!defined($commands)) {
+        $commands = [];
+    }elsif(ref($commands) ne "ARRAY") {
+        $commands = [$commands];
+    }
+    my $async = !!$args{async};
+    my $do = sub {
+        my $writer = shift;
+        (!defined($_context_writer) || refaddr($_context_writer) != refaddr($writer))
+            and local $_context_writer = $writer;
+        
+        $writer->($self->to_string);
+        foreach my $command (@$commands) {
+            if(ref($command) eq "CODE") {
+                $command->($writer);
+            }else {
+                $command = "$command";
+                $writer->($command);
+                $writer->("\n") if $command !~ /\n$/;
+            }
+        }
+    };
+    my $result = "";
+    if(defined($args{writer})) {
+        $do->($args{writer});
+    }elsif(defined($_context_writer)) {
+        $do->($_context_writer);
+    }else {
+        $result = Gnuplot::Builder::Process->with_new_process(async => $async, do => $do);
+    }
+    return $result;
+}
+
+sub run {
+    my ($self, @commands) = @_;
+    return $self->run_with(do => \@commands);
 }
 
 1;
@@ -310,8 +388,6 @@ Gnuplot::Builder::Script - object-oriented builder for gnuplot script
 
 
 =head1 DESCRIPTION
-
-B<< This is a beta release. API may change in the future. >>
 
 L<Gnuplot::Builder::Script> is a builder object for a gnuplot script.
 
@@ -673,7 +749,7 @@ Methods for plotting.
 All plotting methods are non-mutator, that is, they don't change the state of the C<$builder>.
 This means you can plot different datasets with the same settings.
 
-Some plotting methods run a gnuplot process background, and let it do the plotting work.
+By default, plotting methods run a gnuplot process background, and let it do the plotting work.
 The variable C<@Gnuplot::Builder::Process::COMMAND> is used to start the gnuplot process.
 See L<Gnuplot::Builder::Process> for detail.
 
@@ -812,6 +888,247 @@ Same as C<plot()> method except it uses "splot" command.
 =head2 $result = $builder->splot_with(%args)
 
 Same as C<plot_with()> method except it uses "splot" command.
+
+=head2 $result = $builder->multiplot($option, $code)
+
+Build the script, input the script into a new gnuplot process,
+start a new multiplot context and execute the C<$code> in the context.
+This method lets a gnuplot process do the actual job.
+
+C<$option> is the option string for "set multiplot" command. C<$option> is optional.
+
+Mandatory argument C<$code> is a code-ref that is executed immediately.
+The C<$code> is called like
+
+    $code->($writer)
+
+where C<$writer> is a code-ref that you can call to write any data to the gnuplot process.
+
+The return value C<$result> is the data that the gnuplot process writes to STDOUT and STDERR.
+
+The script written to the C<$writer> is enclosed by "set multiplot" and "unset multiplot" commands,
+and passed to the gnuplot process.
+So the following example creates a multiplot figure of sin(x) and cos(x).
+
+    $builder->multiplot('layout 2,1', sub {
+        my $writer = shift;
+        $writer->("plot sin(x)\n");
+        $writer->("plot cos(x)\n");
+    });
+
+If you call plotting methods (including C<multiplot()> itself) without explicit writer in the C<$code> block,
+those methods won't start a new gnuplot process.
+Instead they write the script to the C<$writer> that is given by the enclosing C<multiplot()> method.
+
+    $builder->multiplot(sub {
+        my $writer = shift;
+        my $another_builder = Gnuplot::Builder::Script->new;
+        
+        $another_builder->plot("sin(x)");   ## This is the same as below
+        $another_builder->plot_with(
+            dataset => "sin(x)",
+            writer => $writer
+        );
+    });
+
+So, if you stick to using L<Gnuplot::Builder::Script> in the C<$code>, you don't need to use C<$writer> explicitly.
+
+=head2 $result = $builder->multiplot_with(%args)
+
+Multiplot with more functionalities than C<multiplot()> method.
+
+Fields in C<%args> are
+
+=over
+
+=item C<do> => CODE-REF (mandatory)
+
+A code-ref that is executed in the multiplot context.
+
+=item C<option> => OPTION_STR (optional, default: "")
+
+An option string for "set multiplot" command.
+
+=item C<output> => OUTPUT_FILENAME (optional)
+
+If set, "set output" command is printed just before "set multiplot" command.
+
+See C<plot_with()> method for detail.
+
+=item C<writer> => CODE-REF (optional)
+
+A code-ref to receive the whole script string.
+If set, the return value C<$result> will be an empty string.
+
+See C<plot_with()> method for detail.
+
+=item C<async> => BOOL (optional, default: false)
+
+If set to true, it won't wait for the gnuplot process to finish.
+In this case, the return value C<$result> will be an empty string.
+
+See C<plot_with()> method for detail.
+
+=back
+
+    my $builder = Gnuplot::Builder::Script->new;
+    $builder->set(mxtics => 5, mytics => 5, term => "png");
+    
+    my $script = "";
+    $builder->multiplot_with(
+        output => "multi.png",
+        writer => sub { $script .= $_[0] },
+        option => 'title "multiplot test" layout 2,1',
+        do => sub {
+            my $another_builder = Gnuplot::Builder::Script->new;
+            $another_builder->setq(title => "sin")->plot("sin(x)");
+            $aonther_builder->setq(title => "cos")->plot("cos(x)");
+        }
+    );
+    
+    $script;
+    ## => set mxtics 5
+    ## => set mytics 5
+    ## => set term png
+    ## => set output 'multi.png'
+    ## => set multiplot title "multiplot test" layout 2,1
+    ## => set title 'sin'
+    ## => plot sin(x)
+    ## => set title 'cos'
+    ## => plot cos(x)
+    ## => unset multiplot
+    ## => set output
+
+=head2 $result = $builder->run($command, ...)
+
+Build the script, input the script into a new gnuplot process
+and input the C<$command>s to the process as well.
+This method lets a gnuplot process do the actual job.
+
+C<run()> method is a low-level method of C<plot()>, C<splot()>, C<multiplot()> etc.
+You should use other plotting methods if possible.
+
+C<$command> is either a string or a code-ref.
+You can specify more than one C<$command>s, which are executed sequentially.
+
+=over
+
+=item *
+
+If C<$command> is a string, it is input to the process as a gnuplot sentence.
+
+=item *
+
+If C<$command> is a code-ref, it is immediately called like
+
+    $command->($writer)
+
+where C<$writer> is a code-ref that you can call to write any data to the gnuplot process.
+
+=back
+
+The return value C<$result> is the data that the gnuplot process writes to STDOUT and STDERR.
+
+C<run()> method is useful when you want to execute "plot" command more than once in a single gnuplot process.
+For example,
+
+    my $builder = Gnuplot::Builder::Script->new(<<SET);
+    term = gif size 500,500 animate
+    output = "waves.gif"
+    SET
+    
+    my $FRAME_NUM = 10;
+    $builder->run(sub {
+        my $writer = shift;
+        foreach my $phase_index (0 .. ($FRAME_NUM-1)) {
+            my $phase_deg = 360.0 * $phase_index / $FRAME_NUM;
+            $writer->("plot sin(x + $phase_deg / 180.0 * pi)\n");
+        }
+    });
+
+The above example generates an animated GIF of a traveling sin wave.
+
+Like the C<$code> argument for C<multiplot()> method,
+if you call plotting methods (including C<run()> itself) without explicit writer inside C<$command> code block,
+those methods won't start a new gnuplot process.
+Instead they write the script to the C<$writer> given by the enclosing C<run()> method.
+
+So you can rewrite the C<run()> method of the above example to
+
+    $builder->run(sub {
+        my $another_builder = Gnuplot::Builder::Script->new;
+        foreach my $phase_index (0 .. ($FRAME_NUM-1)) {
+            my $phase_deg = 360.0 * $phase_index / $FRAME_NUM;
+            $another_builder->plot("sin(x + $phase_deg / 180.0 * pi)");
+        }
+    });
+
+
+C<run()> method may also be useful if you want to enclose some sentences with pairs of sentences.
+For example,
+
+    $builder->run(
+        "set multiplot layout 2,2",
+        "do for [name in  'A B C D'] {",
+        sub {
+            my $another_builder = Gnuplot::Builder::Script->new;
+            $another_builder->define(filename => "name . '.dat'");
+            $another_builder->plot('filename u 1:2');
+        },
+        "}",
+        "unset multiplot"
+    );
+
+Well, maybe this is not a good example, though. In this case I would rather use C<multiplot()> and iteration in Perl.
+There is more than one way to do it.
+
+
+=head2 $result = $builder->run_with(%args)
+
+Run the script with more functionalities than C<run()> method.
+
+=over
+
+=item C<do> => COMMANDS (optional)
+
+A command or an array-ref of commands to be executed.
+See C<run()> for specification of commands.
+
+=item C<writer> => CODE-REF (optional)
+
+A code-ref to receive the whole script string. If set, the return value C<$result> will be an empty string.
+
+See C<plot_with()> method for detail.
+
+=item C<async> => BOOL (optional, default: false)
+
+If set to true, it won't wait for the gnuplot process to finish. In this case, the return value C<$result> will be an empty string.
+
+See C<plot_with()> method for detail.
+
+=back
+
+    my $builder = Gnuplot::Builder::Script->new;
+    my $script = "";
+    
+    $builder->run_with(
+        writer => sub { $script .= $_[0] },
+        do => [
+            "cd 'subdir1'",
+            sub {
+                foreach my $name (qw(a b c d)) {
+                    $builder->plot("'$name.dat' u 1:2 title '$name'");
+                }
+            }
+        ]
+    );
+    
+    $script;
+    ## => cd 'subdir1'
+    ## => plot 'a.dat' u 1:2 title 'a'
+    ## => plot 'b.dat' u 1:2 title 'b'
+    ## => plot 'c.dat' u 1:2 title 'c'
+    ## => plot 'd.dat' u 1:2 title 'd'
 
 
 =head1 OBJECT METHODS - INHERITANCE
