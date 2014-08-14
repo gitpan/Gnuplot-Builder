@@ -8,8 +8,19 @@ use POSIX qw(:sys_wait_h);
 use File::Spec;
 use Try::Tiny;
 
-our @COMMAND = qw(gnuplot --persist);
-our $MAX_PROCESSES = 10;
+sub _get_env {
+    my ($basename, @default) = @_;
+    my $name = "PERL_GNUPLOT_BUILDER_PROCESS_$basename";
+    if(defined($ENV{$name}) && $ENV{$name} ne "") {
+        return $ENV{$name};
+    }else {
+        return wantarray ? @default : $default[0];
+    }
+}
+
+our @COMMAND = _get_env("COMMAND", qw(gnuplot --persist));
+our $MAX_PROCESSES = _get_env("MAX_PROCESSES", 10);
+our $PAUSE_FINISH = _get_env("PAUSE_FINISH", 0);
 
 my $END_SCRIPT_MARK = '@@@@@@_END_OF_GNUPLOT_BUILDER_@@@@@@';
 my $processes = Gnuplot::Builder::PartiallyKeyedList->new;
@@ -32,6 +43,17 @@ sub _clear_zombies {
 
 ## PUBLIC ONLY IN TESTS: number of processes it keeps now
 sub FOR_TEST_process_num { $processes->size }
+
+## PUBLIC ONLY IN TESTS
+*FOR_TEST_clear_zombies = *_clear_zombies;
+
+## PUBLIC ONLY IN TESTS
+sub FOR_TEST_wait_all {
+    while($processes->size > 0) {
+        my $proc = $processes->get_at(0);
+        $proc->_waitpid(1);
+    }
+}
 
 ## create a new gnuplot process, create a writer to it and run the
 ## given code. If the code throws an exception, the process is
@@ -119,13 +141,22 @@ sub _writer {
     ## data to STDOUT/STDERR. That's rare.
 }
 
+## lexical sub because MockTool uses it, too.
+my $_finishing_commands = sub {
+    if($PAUSE_FINISH) {
+        return ('pause mouse close', 'exit');
+    }else {
+        return ('exit');
+    }
+};
+
 ## Close the input channel. You can call this method multiple times.
 sub _close_input {
     my ($self) = @_;
     return if not defined $self->{write_handle};
     my $write_handle = $self->{write_handle};
     print $write_handle "\n";
-    foreach my $statement (qq{set print "-"}, qq{print '$END_SCRIPT_MARK'}, qq{exit}) {
+    foreach my $statement (qq{set print "-"}, qq{print '$END_SCRIPT_MARK'}, $_finishing_commands->()) {
         print $write_handle ($statement, "\n");
     }
     close $self->{write_handle};
@@ -135,7 +166,7 @@ sub _close_input {
 sub _waitpid {
     my ($self, $blocking) = @_;
     my $result = waitpid($self->{pid}, $blocking ? 0 : WNOHANG);
-    if($result == $self->{pid}) {
+    if($result == $self->{pid} || $result == -1) {
         $processes->delete($self->{pid});
     }
 }
@@ -173,7 +204,8 @@ sub _wait_to_finish {
         }
         close $read_handle;
     }
-    $self->_waitpid(1);
+    ## Do not actually wait for the process to finish, because it can
+    ## be a long-lasting process with plot windows.
     return $result;
 }
 
@@ -203,7 +235,7 @@ sub receive_from_builder {
         ## detect the end of script by ourselves.
         if(index($line, $END_SCRIPT_MARK) != -1) {
             print $output_handle "$END_SCRIPT_MARK\n";
-            $code->("exit\n");
+            $code->("$_\n") foreach $_finishing_commands->();
             last;
         }
     }
@@ -233,6 +265,8 @@ by all L<Gnuplot::Builder::Script> objects.
 
 You can configure its package variables to change its behavior.
 
+B<< The default values for these variables may be changed in future releases. >>
+
 =head1 PACKAGE VARIABLES
 
 =head2 @COMMAND
@@ -241,12 +275,28 @@ The command and arguments to run a gnuplot process.
 
 By default, it's C<("gnuplot", "--persist")>.
 
+You can also set this variable by the environment variable
+C<PERL_GNUPLOT_BUILDER_PROCESS_COMMAND>.
+
 =head2 $MAX_PROCESSES
 
 Maximum number of gnuplot processes that can run in parallel.
 If C<$MAX_PROCESSES> <= 0, the number of processes is unlimited.
 
 By default, it's C<10>.
+
+You can also set this variable by the environment variable
+C<PERL_GNUPLOT_BUILDER_PROCESS_MAX_PROCESSES>.
+
+=head2 $PAUSE_FINISH
+
+If set to true, L<Gnuplot::Builder> sends "pause mouse close" command to the gnuplot process
+just before finishing the script.
+
+By default, it's C<0> (false).
+
+You can also set this variable by the environment variable
+C<PERL_GNUPLOT_BUILDER_PROCESS_PAUSE_FINISH>.
 
 =head1 AUTHOR
 

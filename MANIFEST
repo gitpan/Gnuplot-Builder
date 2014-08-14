@@ -33,6 +33,7 @@ t/pkl/delete.t
 t/pkl/example.t
 t/pkl/hash.t
 t/pkl/merge.t
+t/process/env.t
 t/script/add.t
 t/script/command_block.t
 t/script/cycle.t
@@ -61,6 +62,7 @@ t/script/plot_with_example_obj.t
 t/script/plot_with_obj.t
 t/script/plot_with_str.t
 t/script/run.t
+t/script/synopsis.t
 t/testlib/Dataset.pm
 t/testlib/DatasetUtil.pm
 t/testlib/PKLUtil.pm
@@ -71,10 +73,12 @@ xt/ghelp.t
 xt/manifest.t
 xt/max_parallel.t
 xt/multiplot.t
+xt/pause_finish.t
 xt/plot.t
 xt/pod.t
 xt/process_mocktool.t
 xt/run.t
+xt/testlib/tee.pl
 xt/testlib/XTUtil.pm
 META.yml
 META.json

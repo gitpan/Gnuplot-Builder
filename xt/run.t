@@ -4,7 +4,7 @@ use Test::More;
 use Gnuplot::Builder::Script;
 use Gnuplot::Builder::Process;
 use lib "xt";
-use testlib::XTUtil qw(if_no_file);
+use testlib::XTUtil qw(if_no_file check_process_finish cond_check);
 
 if_no_file "test_example_gif_animation.gif", sub {
     my $filename = shift;
@@ -21,7 +21,9 @@ SET
             $builder->plot("sin(x + $phase_deg / 180.0 * pi)");
         }
     });
-    is $result, "", "gnuplot process should output no error message";
+    cond_check sub {
+        is $result, "", "gnuplot process should output no error message";
+    };
     ok((-f $filename), "$filename created");
 };
 
@@ -41,12 +43,15 @@ foreach my $case (
             $writer->("print 'foobar'");
         }
     );
-    is $got, $case->{exp}, "$case->{label}: return value OK";
+    cond_check sub {
+        is $got, $case->{exp}, "$case->{label}: return value OK";
+    };
 }
 
 {
     note("--- nested plotting methods share the same process ");
-    Gnuplot::Builder::Script->new(term => "postscript")->plot("sin(x)"); ## reap processes
+    sleep 1;
+    Gnuplot::Builder::Process->FOR_TEST_clear_zombies;
     my $builder = Gnuplot::Builder::Script->new(
         term => "wxt size 1000,700",
     );
@@ -72,4 +77,5 @@ SET
     is(Gnuplot::Builder::Process->FOR_TEST_process_num, 1, "1 process is shared by all the plotting methods.");
 }
 
+check_process_finish;
 done_testing;
