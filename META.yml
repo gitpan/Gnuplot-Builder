@@ -3,14 +3,12 @@ abstract: 'object-oriented gnuplot script builder'
 author:
   - 'Toshio Ito <toshioito@cpan.org>'
 build_requires:
-  Module::Build::Pluggable::CPANfile: '0.05'
   Test::Identity: '0'
   Test::Memory::Cycle: '0'
   Test::More: '0'
 configure_requires:
   Module::Build: '0.42'
-  Module::Build::Pluggable: '0.09'
-  Module::Build::Pluggable::CPANfile: '0.05'
+  Module::Build::Prereqs::FromCPANfile: '0.02'
 dynamic_config: 1
 generated_by: 'Module::Build version 0.4205, CPAN::Meta::Converter version 2.141170'
 license: perl
@@ -38,4 +36,4 @@ requires:
 resources:
   bugtracker: https://github.com/debug-ito/Gnuplot-Builder/issues
   repository: git://github.com/debug-ito/Gnuplot-Builder.git
-version: '0.21'
+version: '0.22'
