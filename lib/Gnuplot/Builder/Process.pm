@@ -21,6 +21,7 @@ sub _get_env {
 our @COMMAND = _get_env("COMMAND", qw(gnuplot --persist));
 our $MAX_PROCESSES = _get_env("MAX_PROCESSES", 10);
 our $PAUSE_FINISH = _get_env("PAUSE_FINISH", 0);
+our $TAP = undef;
 
 my $END_SCRIPT_MARK = '@@@@@@_END_OF_GNUPLOT_BUILDER_@@@@@@';
 my $processes = Gnuplot::Builder::PartiallyKeyedList->new;
@@ -131,8 +132,11 @@ sub _writer {
     my ($self) = @_;
     croak "Input end is already closed" if not defined $self->{write_handle};
     my $write_handle = $self->{write_handle};
+    my $pid = $self->{pid};
     return sub {
-        print $write_handle (@_);
+        my $msg = join "", @_;
+        $TAP->($pid, "write", $msg) if defined $TAP;
+        print $write_handle ($msg);
     };
     ## If we are serious about avoiding dead-lock, we must use
     ## select() to check writability first and to read from the
@@ -154,11 +158,12 @@ my $_finishing_commands = sub {
 sub _close_input {
     my ($self) = @_;
     return if not defined $self->{write_handle};
-    my $write_handle = $self->{write_handle};
-    print $write_handle "\n";
+    my $writer = $self->_writer;
+    $writer->("\n");
     foreach my $statement (qq{set print "-"}, qq{print '$END_SCRIPT_MARK'}, $_finishing_commands->()) {
-        print $write_handle ($statement, "\n");
+        $writer->($statement . "\n");
     }
+    undef $writer;
     close $self->{write_handle};
     $self->{write_handle} = undef;
 }
@@ -297,6 +302,23 @@ By default, it's C<0> (false).
 
 You can also set this variable by the environment variable
 C<PERL_GNUPLOT_BUILDER_PROCESS_PAUSE_FINISH>.
+
+=head2 $TAP
+
+A subroutine reference to tap the IPC with the gnuplot process. This is useful for debugging.
+
+If set, the subroutine reference is called for each event.
+
+    $TAP->($pid, $event, $body)
+
+where C<$pid> is the PID of the gnuplot process,
+C<$event> is a string describing the event type,
+and C<$body> is an object describing the event.
+
+Currently C<$event> is always C<"write">, which is called every time some data is written to the gnuplot process.
+C<$body> is the written string.
+
+To set C<$TAP> from outside the program, use L<Gnuplot::Builder::Tap>.
 
 =head1 AUTHOR
 

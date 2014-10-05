@@ -7,8 +7,11 @@ lib/Gnuplot/Builder/PartiallyKeyedList.pm
 lib/Gnuplot/Builder/Process.pm
 lib/Gnuplot/Builder/PrototypedData.pm
 lib/Gnuplot/Builder/Script.pm
+lib/Gnuplot/Builder/Tap.pm
 lib/Gnuplot/Builder/Util.pm
 MANIFEST			This list of files
+META.json
+META.yml
 README
 t/00-load.t
 t/builder/aliases.t
@@ -78,7 +81,7 @@ xt/plot.t
 xt/pod.t
 xt/process_mocktool.t
 xt/run.t
+xt/tap.t
+xt/testlib/plotter.pl
 xt/testlib/tee.pl
 xt/testlib/XTUtil.pm
-META.yml
-META.json
