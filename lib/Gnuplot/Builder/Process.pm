@@ -18,8 +18,9 @@ sub _get_env {
     }
 }
 
+our $ASYNC = _get_env("ASYNC", 0);
 our @COMMAND = _get_env("COMMAND", qw(gnuplot --persist));
-our $MAX_PROCESSES = _get_env("MAX_PROCESSES", 10);
+our $MAX_PROCESSES = _get_env("MAX_PROCESSES", 2);
 our $PAUSE_FINISH = _get_env("PAUSE_FINISH", 0);
 our $TAP = undef;
 
@@ -48,8 +49,8 @@ sub FOR_TEST_process_num { $processes->size }
 ## PUBLIC ONLY IN TESTS
 *FOR_TEST_clear_zombies = *_clear_zombies;
 
-## PUBLIC ONLY IN TESTS
-sub FOR_TEST_wait_all {
+## Documented public method.
+sub wait_all {
     while($processes->size > 0) {
         my $proc = $processes->get_at(0);
         $proc->_waitpid(1);
@@ -71,7 +72,7 @@ sub with_new_process {
     my ($class, %args) = @_;
     my $code = $args{do};
     croak "do parameter is mandatory" if !defined($code);
-    my $async = $args{async};
+    my $async = defined($args{async}) ? $args{async} : $ASYNC;
     my $process = $class->_new(capture => !$async);
     my $result = "";
     try {
@@ -270,9 +271,27 @@ by all L<Gnuplot::Builder::Script> objects.
 
 You can configure its package variables to change its behavior.
 
-B<< The default values for these variables may be changed in future releases. >>
+=head1 CLASS METHODS
+
+=head2 Gnuplot::Builder::Process->wait_all()
+
+Wait for all gnuplot processes to finish.
+
+If there is no gnuplot process running, this method returns immediately.
 
 =head1 PACKAGE VARIABLES
+
+B<< The default values for these variables may be changed in future releases. >>
+
+=head2 $ASYNC
+
+If set to true, plotting methods of L<Gnuplot::Builder::Script> run in the asynchronous mode by default.
+See L<Gnuplot::Builder::Script> for detail.
+
+By default, it's C<0> (false).
+
+You can also set this variable by the environment variable
+C<PERL_GNUPLOT_BUILDER_PROCESS_ASYNC>.
 
 =head2 @COMMAND
 
@@ -288,7 +307,7 @@ C<PERL_GNUPLOT_BUILDER_PROCESS_COMMAND>.
 Maximum number of gnuplot processes that can run in parallel.
 If C<$MAX_PROCESSES> <= 0, the number of processes is unlimited.
 
-By default, it's C<10>.
+By default, it's C<2>.
 
 You can also set this variable by the environment variable
 C<PERL_GNUPLOT_BUILDER_PROCESS_MAX_PROCESSES>.
@@ -319,6 +338,13 @@ Currently C<$event> is always C<"write">, which is called every time some data i
 C<$body> is the written string.
 
 To set C<$TAP> from outside the program, use L<Gnuplot::Builder::Tap>.
+
+Example:
+
+    local $Gnuplot::Builder::Process::TAP = sub {
+        my ($pid, $event, $body) = @_;
+        warn "PID:$pid, EVENT:$event, BODY:$body";
+    };
 
 =head1 AUTHOR
 

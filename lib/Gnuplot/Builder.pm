@@ -6,9 +6,9 @@ use Gnuplot::Builder::Script;
 use Gnuplot::Builder::Dataset;
 use Gnuplot::Builder::Process;
 
-our $VERSION = "0.23";
+our $VERSION = "0.24";
 
-our @EXPORT = our @EXPORT_OK = qw(gscript gfunc gfile gdata ghelp);
+our @EXPORT = our @EXPORT_OK = qw(gscript gfunc gfile gdata ghelp gwait);
 
 sub gscript {
     return Gnuplot::Builder::Script->new(@_);
@@ -38,6 +38,10 @@ sub ghelp {
     });
 }
 
+sub gwait {
+    return Gnuplot::Builder::Process->wait_all();
+}
+
 1;
 __END__
 
@@ -59,11 +63,13 @@ Gnuplot::Builder - object-oriented gnuplot script builder
     );
     $script->define('f(x)' => 'sin(x) / x');
     
-    $script->plot(
+    print $script->plot(
         gfile('result.dat',
               using => '1:2:3', title => "'Measured'", with => "yerrorbars"),
         gfunc('f(x)', title => "'Theoretical'", with => "lines")
     );
+    
+    gwait();
 
 
 =head1 DESCRIPTION
@@ -94,6 +100,11 @@ This is useful for hierarchical configuration.
 B<Interactive>. L<Gnuplot::Builder> works well both in batch scripts and in interactive shells.
 Use L<Devel::REPL> or L<Reply> or whatever you like instead of the plain old gnuplot interative shell.
 
+=item *
+
+B<Parallel>. L<Gnuplot::Builder>'s policy is "one gnuplot process for one plot".
+You can run more than one gnuplot processes in parallel to boost the plotting through-put.
+
 =back
 
 =head1 USAGE GUIDE
@@ -115,6 +126,13 @@ As a workaround, try L<Gnuplot::Builder::Wgnuplot>.
 
 L<Gnuplot::Builder> supports plots in interactive windows.
 See L</CONFIGURATION FOR PLOT WINDOWS> for known issues about that.
+
+=head2 Debugging
+
+Because L<Gnuplot::Builder> is a very thin module,
+it does not guarantee to build valid gnuplot scripts.
+You need to debug your script when you got an invalid script.
+See L</DEBUGGING TIPS> for detail.
 
 =head1 EXPORTED FUNCTIONS
 
@@ -153,6 +171,11 @@ C<@help_args> is the arguments for the "help" command. They are joined with whit
     ## or you can say
     
     ghelp("style", "data");
+
+=head2 gwait()
+
+Wait for all gnuplot processes to finish.
+It's just an alias for C<< Gnuplot::Builder::Process->wait_all() >>.
 
 =head1 CONFIGURATION FOR PLOT WINDOWS
 
@@ -235,6 +258,43 @@ such as zooming and clipping.
 This is gnuplot's limitation in "persist" mode.
 "wxt" terminal may be unstable (it crashes or freezes) in some environments.
 
+=head1 DEBUGGING TIPS
+
+Plotting methods of L<Gnuplot::Builder::Script> returns the output from the gnuplot process.
+Always show the return value, because it contains an error message when something is wrong.
+
+    my $script = Gnuplot::Builder::Script->new();
+    ## my $script = gscript();   ## same
+    
+    print $script->plot("sin(x)");
+
+Sometimes you need to peek the script text written to the gnuplot process.
+To do that, run your program with L<Gnuplot::Builder::Tap> loaded.
+
+    $ perl -MGnuplot::Builder::Tap your_program.pl
+
+Or you can set C<$Gnuplot::Builder::Process::TAP> variable. See L<Gnuplot::Builder::Process> for detail.
+
+=head2 Common Errors
+
+=over
+
+=item *
+
+Quote string literals explicitly.
+
+    $script->set(xlabel => 'hogehoge');   ## NG!
+    $script->set(xlabel => '"hogehoge"'); ## OK
+    $script->setq(xlabel => 'hogehoge');  ## OK
+
+=item *
+
+Arrange dataset options in valid order.
+
+    $dataset = gfile('data.txt', with => "linespoints", using => "1:3"); ## NG!
+    $dataset = gfile('data.txt', using => "1:3", with => "linespoints"); ## OK
+
+=back
 
 =head1 REPOSITORY
 
