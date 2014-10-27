@@ -10,6 +10,7 @@ sub new {
     my ($class, $source, @set_option_args) = @_;
     my $self = bless {
         pdata => undef,
+        pdata_join => undef,
         parent => undef,
     }, $class;
     $self->_init_pdata();
@@ -45,6 +46,7 @@ sub _init_pdata {
             return $coderef->($self);
         } },
     );
+    $self->{pdata_join} = Gnuplot::Builder::PrototypedData->new();
 }
 
 sub to_string {
@@ -55,7 +57,12 @@ sub to_string {
         my ($name, $values_arrayref) = @_;
         my @values = grep { defined($_) } @$values_arrayref;
         return if !@values;
-        push @words, $name, @values;
+        my $join = $self->{pdata_join}->get_resolved_attribute($name);
+        if(defined $join) {
+            push @words, $name, join($join, @values);
+        }else {
+            push @words, $name, @values;
+        }
     });
     return join " ", grep { defined($_) && $_ ne "" } @words;
 }
@@ -136,6 +143,7 @@ sub set_parent {
     if(!defined($parent)) {
         $self->{parent} = undef;
         $self->{pdata}->set_parent(undef);
+        $self->{pdata_join}->set_parent(undef);
         return $self;
     }
     if(!blessed($parent) || !$parent->isa("Gnuplot::Builder::Dataset")) {
@@ -143,6 +151,7 @@ sub set_parent {
     }
     $self->{parent} = $parent;
     $self->{pdata}->set_parent($parent->{pdata});
+    $self->{pdata_join}->set_parent($parent->{pdata_join});
     return $self;
 }
 
@@ -178,6 +187,24 @@ sub write_data_to {
 sub delete_data {
     my ($self) = @_;
     $self->{pdata}->delete_attribute("data");
+    return $self;
+}
+
+sub set_join {
+    my ($self, %joins) = @_;
+    foreach my $name (keys %joins) {
+        $self->{pdata_join}->set_attribute(
+            key => $name, value => $joins{$name}, quote => 0
+        );
+    }
+    return $self;
+}
+
+sub delete_join {
+    my ($self, @names) = @_;
+    foreach my $name (@names) {
+        $self->{pdata_join}->delete_attribute($name);
+    }
     return $self;
 }
 
@@ -620,6 +647,57 @@ If none of them have inline data, C<$writer> is not called at all.
 =head2 $dataset = $dataset->delete_data()
 
 Delete the inline data setting from the C<$dataset>.
+
+=head1 OBJECT METHODS - JOIN
+
+B<< This feature is currently experimental. There may be incompatible API changes in the future. >>
+
+If you set an array-ref value in C<set()> or C<set_option()> method,
+the values in the array-ref are joined with spaces.
+
+The "join" attribute described here changes this behavior.
+With C<set_join()> method, you can use any string to join values in array-refs.
+
+Like other attirbutes (the source, the options and the inline data),
+the join attribute is inheritable.
+
+=head2 $dataset = $dataset->set_join($opt_name => $join, ...)
+
+Set the join attribute of the given C<$opt_name> to C<$join>.
+You can set more than one pairs of C<$opt_name> and C<$join>.
+
+C<$join> is either C<undef> or a string.
+
+=over
+
+=item *
+
+If C<$join> is C<undef>, it resets to the default.
+That is, array-ref options are joined with spaces.
+
+=item *
+
+If C<$join> is a string, that string is used to join array-ref options.
+
+=back
+
+For example:
+
+    $dataset->set_join(using => ":", every => ":");
+    $dataset->set(
+        using => [1, '(($2 + $3)/2.0*1000)'],
+        every => [1, 1, 1, 0],
+        with  => ["linespoints", "ps 3", "lt 2"],
+    );
+    $dataset->to_string;
+    ## => 'hoge.dat' using 1:(($2 + $3)/2.0*1000) every 1:1:1:0 with linespoints ps 3 lt 2
+
+=head2 $dataset = $dataset->delete_join($opt_name, ...)
+
+Delete the join attribute for C<$opt_name> from C<$dataset>.
+You can specify more than one C<$opt_name>s.
+
+Once the join attribute is deleted, the join attribute of C<$dataset>'s parent is used to join array-ref options.
 
 
 =head1 OBJECT METHODS - INHERITANCE

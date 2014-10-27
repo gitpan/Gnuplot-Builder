@@ -20,8 +20,10 @@ t/dataset/data.t
 t/dataset/inherit_alias.t
 t/dataset/inherit_change.t
 t/dataset/inherit_data.t
+t/dataset/inherit_join.t
 t/dataset/inherit_mixed.t
 t/dataset/inherit_source.t
+t/dataset/join.t
 t/dataset/new.t
 t/dataset/opt_delete.t
 t/dataset/opt_multiple_values.t
