@@ -1,8 +1,13 @@
 use strict;
-use warnings FATAL => "all";
+use warnings;
 use Test::More;
 use Test::Identity;
 use Gnuplot::Builder::Dataset;
+
+my @warnings = ();
+$SIG{__WARN__} = sub {
+    push @warnings, $_[0]
+};
 
 {
     note("--- example");
@@ -29,8 +34,12 @@ use Gnuplot::Builder::Dataset;
          join => ":", opt => ["bar"], exp => "foo bar"},
         {label => "join string, opt multi value array",
          join => ":", opt => ["bar", "buzz"], exp => "foo bar:buzz"},
+        {label => "join string, opt multi empty strings array",
+         join => ":", opt => ["", "", ""], exp => "foo ::"},
         {label => "join undef, opt multi value array",
          join => undef, opt => ["bar", "buzz"], exp => "foo bar buzz"},
+        {label => "join undef, opt multi empty strings array",
+         join => undef, opt => ["", "", ""], exp => "foo"},
         {label => "join string, opt empty code",
          join => ":", opt => sub { () }, exp => ""},
         {label => "join string, opt single value code",
@@ -38,7 +47,11 @@ use Gnuplot::Builder::Dataset;
         {label => "join string, opt multi value code",
          join => ":", opt => sub { ("bar", "buzz") }, exp => "foo bar:buzz"},
         {label => "join undef, opt multi value code",
-         join => undef, opt => sub { ("bar", "buzz") }, exp => "foo bar buzz"}
+         join => undef, opt => sub { ("bar", "buzz") }, exp => "foo bar buzz"},
+        {label => "join string, opt multi empty strings code",
+         join => ":", opt => sub { ("", "", "") }, exp => "foo ::"},
+        {label => "join undef, opt multi empty strings array",
+         join => undef, opt => sub { ("", "", "") }, exp => "foo"},
     );
     foreach my $case (@testcases) {
         my $dataset = Gnuplot::Builder::Dataset->new;
@@ -75,5 +88,8 @@ use Gnuplot::Builder::Dataset;
     $dataset->set(foo => [qw(F O O)], bar => [qw(B A R)], buzz => [qw(B U Z Z)]);
     is $dataset->to_string, 'foo F@@@O@@@O bar B|A|R buzz B U Z Z';
 }
+
+cmp_ok scalar(@warnings), ">", 0, "at least 1 warning should be emitted";
+is scalar(grep { /join/i && /deprecated/i } @warnings), scalar(@warnings), "... they are all related to deprecation of join";
 
 done_testing;

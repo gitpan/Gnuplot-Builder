@@ -39,6 +39,11 @@ sub get_at {
     return ($self->{keys}[$index], $self->{values}[$index]);
 }
 
+sub get_all_values {
+    my ($self) = @_;
+    return @{$self->{values}};
+}
+
 sub exists {
     my ($self, $key) = @_;
     croak "key must be defined" if not defined $key;
@@ -189,6 +194,8 @@ Get the value for the C<$key>.
 
 If C<$key> doesn't exist in C<$pkl>, it returns C<undef>.
 
+=head2 $value = $pkl->get_at($index)
+
 =head2 ($key, $value) = $pkl->get_at($index)
 
 Get an entry at C<$index>. C<$index> starts with 0.
@@ -196,7 +203,14 @@ Get an entry at C<$index>. C<$index> starts with 0.
 This method can return both keyed and non-keyed entries.
 For non-keyed entries, the return value C<$key> is C<undef>.
 
+In scalar context, it returns C<$value> only.
+In list context, it returns C<$key> and C<$value>.
+
 Complexity of C<< get_at(0) >> is guaranteed to be O(1).
+
+=head2 @values = $pkl->get_all_values()
+
+Get the list of all values.
 
 =head2 $does_exist = $pkl->exists($key)
 

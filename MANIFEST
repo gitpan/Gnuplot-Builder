@@ -3,6 +3,7 @@ Changes
 cpanfile
 lib/Gnuplot/Builder.pm
 lib/Gnuplot/Builder/Dataset.pm
+lib/Gnuplot/Builder/JoinDict.pm
 lib/Gnuplot/Builder/PartiallyKeyedList.pm
 lib/Gnuplot/Builder/Process.pm
 lib/Gnuplot/Builder/PrototypedData.pm
@@ -32,8 +33,11 @@ t/dataset/opt_single_value.t
 t/dataset/overload.t
 t/dataset/source.t
 t/dataset/synopsis.t
+t/joindict/basic.t
+t/joindict/example.t
 t/pkl/delete.t
 t/pkl/example.t
+t/pkl/get_at.t
 t/pkl/hash.t
 t/pkl/merge.t
 t/process/env.t
@@ -57,6 +61,7 @@ t/script/opt_delete.t
 t/script/opt_get.t
 t/script/opt_multiple_entries.t
 t/script/opt_name_with_spaces.t
+t/script/opt_object.t
 t/script/opt_parsing.t
 t/script/opt_setq.t
 t/script/opt_single_entry.t

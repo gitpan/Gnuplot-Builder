@@ -10,7 +10,7 @@ sub new {
     my ($class, $source, @set_option_args) = @_;
     my $self = bless {
         pdata => undef,
-        pdata_join => undef,
+        pdata_join => undef,  ## deprecated. should be removed in the future.
         parent => undef,
     }, $class;
     $self->_init_pdata();
@@ -64,7 +64,7 @@ sub to_string {
             push @words, $name, @values;
         }
     });
-    return join " ", grep { defined($_) && $_ ne "" } @words;
+    return join " ", grep { defined($_) && "$_" ne "" } @words;
 }
 
 *params_string = *to_string;
@@ -190,8 +190,15 @@ sub delete_data {
     return $self;
 }
 
+sub _deprecated {
+    my ($msg) = @_;
+    my $method = (caller(1))[3];
+    carp "$method is deprecated. $msg";
+}
+
 sub set_join {
     my ($self, %joins) = @_;
+    _deprecated("Use Gnuplot::Builder::JoinDict.");
     foreach my $name (keys %joins) {
         $self->{pdata_join}->set_attribute(
             key => $name, value => $joins{$name}, quote => 0
@@ -202,6 +209,7 @@ sub set_join {
 
 sub delete_join {
     my ($self, @names) = @_;
+    _deprecated("Use Gnuplot::Builder::JoinDict.");
     foreach my $name (@names) {
         $self->{pdata_join}->delete_attribute($name);
     }
@@ -385,7 +393,7 @@ You can specify more than one pairs of C<$opt_name> and C<$opt_value>.
 
 C<$opt_name> is the name of the option (e.g. "using" and "every").
 
-C<$opt_value> is either C<undef>, a string, an array-ref of strings or a code-ref.
+C<$opt_value> is either C<undef>, a string, an array-ref of strings, a code-ref or a blessed object.
 
 =over
 
@@ -418,6 +426,12 @@ C<$dataset> and C<$opt_name> are passed to the code-ref.
 
 Then, the option is generated as if C<< $opt_name => \@returned_values >> was set.
 You can return an C<undef> or an empty list to disable the option.
+
+=item *
+
+If C<$opt_value> is a blessed object, it's stringification (i.e. C<< "$opt_value" >>) is evaluated when C<$dataset> builds the parameters.
+You can retrieve the object by C<get_option()> method.
+
 
 =back
 
@@ -563,6 +577,8 @@ In scalar context, it returns only the first value.
 
 If a code-ref is set to the C<$opt_name>, it's evaluated and its results are returned.
 
+If a blessed object is set to the C<$opt_name>, that object is returned.
+
 If the option is not set in C<$dataset>, the value of its parent is returned.
 If none of the ancestors doesn't have the option, it returns an empty list in list context
 or C<undef> in scalar context.
@@ -647,58 +663,6 @@ If none of them have inline data, C<$writer> is not called at all.
 =head2 $dataset = $dataset->delete_data()
 
 Delete the inline data setting from the C<$dataset>.
-
-=head1 OBJECT METHODS - JOIN
-
-B<< This feature is currently experimental. There may be incompatible API changes in the future. >>
-
-If you set an array-ref value in C<set()> or C<set_option()> method,
-the values in the array-ref are joined with spaces.
-
-The "join" attribute described here changes this behavior.
-With C<set_join()> method, you can use any string to join values in array-refs.
-
-Like other attirbutes (the source, the options and the inline data),
-the join attribute is inheritable.
-
-=head2 $dataset = $dataset->set_join($opt_name => $join, ...)
-
-Set the join attribute of the given C<$opt_name> to C<$join>.
-You can set more than one pairs of C<$opt_name> and C<$join>.
-
-C<$join> is either C<undef> or a string.
-
-=over
-
-=item *
-
-If C<$join> is C<undef>, it resets to the default.
-That is, array-ref options are joined with spaces.
-
-=item *
-
-If C<$join> is a string, that string is used to join array-ref options.
-
-=back
-
-For example:
-
-    $dataset->set_join(using => ":", every => ":");
-    $dataset->set(
-        using => [1, '(($2 + $3)/2.0*1000)'],
-        every => [1, 1, 1, 0],
-        with  => ["linespoints", "ps 3", "lt 2"],
-    );
-    $dataset->to_string;
-    ## => 'hoge.dat' using 1:(($2 + $3)/2.0*1000) every 1:1:1:0 with linespoints ps 3 lt 2
-
-=head2 $dataset = $dataset->delete_join($opt_name, ...)
-
-Delete the join attribute for C<$opt_name> from C<$dataset>.
-You can specify more than one C<$opt_name>s.
-
-Once the join attribute is deleted, the join attribute of C<$dataset>'s parent is used to join array-ref options.
-
 
 =head1 OBJECT METHODS - INHERITANCE
 
