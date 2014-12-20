@@ -9,6 +9,7 @@ lib/Gnuplot/Builder/Process.pm
 lib/Gnuplot/Builder/PrototypedData.pm
 lib/Gnuplot/Builder/Script.pm
 lib/Gnuplot/Builder/Tap.pm
+lib/Gnuplot/Builder/Template.pm
 lib/Gnuplot/Builder/Util.pm
 MANIFEST			This list of files
 README
@@ -35,6 +36,11 @@ t/dataset/source.t
 t/dataset/synopsis.t
 t/joindict/basic.t
 t/joindict/example.t
+t/joindict/export.t
+t/joindict/filter.t
+t/joindict/nest.t
+t/joindict/set_all.t
+t/joindict/validator.t
 t/pkl/delete.t
 t/pkl/example.t
 t/pkl/get_at.t
@@ -71,9 +77,13 @@ t/script/plot_with_obj.t
 t/script/plot_with_str.t
 t/script/run.t
 t/script/synopsis.t
+t/template/every.t
+t/template/synopsis.t
+t/template/using.t
 t/testlib/Dataset.pm
 t/testlib/DatasetUtil.pm
 t/testlib/PKLUtil.pm
+t/testlib/RefUtil.pm
 t/testlib/ScriptUtil.pm
 xt/async_bigoutput.t
 xt/async_option.t

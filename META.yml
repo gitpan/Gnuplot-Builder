@@ -27,6 +27,7 @@ no_index:
   file:
     - README.pod
 requires:
+  Exporter: '5.57'
   File::Spec: '0'
   IPC::Open3: '0'
   List::Util: '1.28'
@@ -38,4 +39,4 @@ requires:
 resources:
   bugtracker: https://github.com/debug-ito/Gnuplot-Builder/issues
   repository: git://github.com/debug-ito/Gnuplot-Builder.git
-version: '0.26'
+version: '0.27'

@@ -33,6 +33,7 @@
       },
       "runtime" : {
          "requires" : {
+            "Exporter" : "5.57",
             "File::Spec" : "0",
             "IPC::Open3" : "0",
             "List::Util" : "1.28",
@@ -63,5 +64,5 @@
          "web" : "https://github.com/debug-ito/Gnuplot-Builder"
       }
    },
-   "version" : "0.26"
+   "version" : "0.27"
 }
